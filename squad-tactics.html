@@ -137,7 +137,7 @@ html,body{margin:0;padding:0;overflow:hidden;background:#000;font-family:'Consol
 const TILE=32;
 const WEAPONS={
   pistol:{name:'Pistol',dmg:17,rate:340,range:520,spread:3,mag:12,reload:850,speed:1500,pellets:1},
-  dualPistol:{name:'Dual Pistol',dmg:17,rate:340,range:520,spread:5.5,mag:12,reload:1350,speed:1500,pellets:2},
+  dualpistol:{name:'Dual Pistol',dmg:17,rate:340,range:520,spread:5,mag:15,reload:1350,speed:1500,pellets:2},
   smg:{name:'SMG',dmg:11,rate:100,range:420,spread:7,mag:30,reload:1200,speed:1500,pellets:1},
   rifle:{name:'Rifle',dmg:21,rate:180,range:700,spread:2.5,mag:25,reload:1450,speed:1700,pellets:1},
   shotgun:{name:'Shotgun',dmg:9,rate:650,range:230,spread:15,mag:6,reload:1650,speed:1300,pellets:5},
@@ -149,8 +149,8 @@ const GADGETS={
   medpack:{name:'Med Pack (x1)', count:1},
   bazooka:{name:'Bazooka (x1)', count:1},
 };
-const UNIT_NAMES=['ALPHA','BRAVO','CHARLIE','DELTA','ECHO','FOXTROT']; //essential
-const VISION_RANGE=450, VISION_CONE=75, CLOSE_DETECT=60, REVEAL_RANGE=340;
+const UNIT_NAMES=['ALPHA','BRAVO','CHARLIE','DELTA','ECHO','FOXTROT'];
+const VISION_RANGE=300, VISION_CONE=58, CLOSE_DETECT=60, REVEAL_RANGE=340;
 const EXTRACT_RADIUS=46;
 const DIFFICULTIES={
   easy:      {label:'EASY',        primaryCount:1, secMin:0, secMax:2, mapW:64,  mapH:46, roomMin:9,  roomMax:12, enemyMin:10, enemyMax:20},
@@ -435,7 +435,7 @@ window.addEventListener('keydown',e=>{
   ac();
   if(state!=='PLAYING') return;
   const k=e.key.toLowerCase();
-  if(k==='1') selSquad=0; else if(k==='2') selSquad=1; else if(k==='3') selSquad=2; else if(k==='4') selSquad=3; else if(k==='5') selSquad=4; else if(k==='6') selSquad=5; else if(k==='7') selSquad='all';//essential
+  if(k==='1') selSquad=0; else if(k==='2') selSquad=1; else if(k==='3') selSquad=2; else if(k==='4') selSquad=3; else if(k==='5') selSquad=4; else if(k==='6') selSquad=5; else if(k==='7') selSquad='all'; //essential
   if(k==='r') player.startReload();
   if(k==='q') usePlayerGadget();
   if(k==='f') issueOrder({type:'FOLLOW'});
@@ -525,7 +525,9 @@ function showScreen(name){
 }
 function buildArmory(){
   const grid=document.getElementById('armoryGrid'); grid.innerHTML='';
-const units=[{key:'player',label:'YOU'},{key:'alpha',label:'ALPHA'},{key:'bravo',label:'BRAVO'},{key:'charlie',label:'CHARLIE'},{key:'delta',label:'DELTA'},{key:'echo',label:'ECHO'},{key:'foxtrot',label:'FOXTROT'}]; //essential  for(const u of units){
+  const units=[{key:'player',label:'YOU'},{key:'alpha',label:'ALPHA'},{key:'bravo',label:'BRAVO'},{key:'charlie',label:'CHARLIE'},{key:'delta',label:'DELTA'},{key:'echo',label:'ECHO'},{key:'foxtrot',label:'FOXTROT'}]; //essential
+
+  for(const u of units){
     const card=document.createElement('div'); card.className='unitCard';
     card.innerHTML=`<h3>${u.label}</h3>
       <div class="optRow"><div class="optLabel">WEAPON</div><div class="optBtns" data-cat="weapon" data-unit="${u.key}">
@@ -575,11 +577,11 @@ function startMission(){
   player=new Soldier(sp.x,sp.y,true,'YOU');
   applyLoadout(player,loadouts.player);
   squad=[];
-  const offsets=[{x:-46,y:-34},{x:-46,y:34},{x:-72,y:0},{x:72,y:50},{x:72,y:50},{x:98,y:0}];//essential
+  const offsets=[{x:-46,y:-34},{x:-46,y:34},{x:-72,y:0},{x:-30,y:30},{x:30,y:-30},{x:25,y:25}]; //essential
   for(let i=0;i<6;i++){ //essential
     const o=offsets[i];
     const s=new Soldier(sp.x+o.x*0.4,sp.y+o.y*0.4,false,UNIT_NAMES[i]);
-    applyLoadout(s, loadouts[['alpha','bravo','charlie','delta','echo','foxtrot'][i]]);
+    applyLoadout(s, loadouts[['alpha','bravo','charlie','delta','echo','foxtrot'][i]]);//essential
     s.formOffset=o;
     squad.push(s);
   }
