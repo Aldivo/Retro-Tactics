@@ -19,7 +19,7 @@ html,body{margin:0;padding:0;overflow:hidden;background:#000;font-family:'Consol
 .btnPrimary:hover{background:rgba(80,60,10,0.9);box-shadow:0 0 16px rgba(232,179,57,0.4);}
 .controls-hint{position:absolute;bottom:10px;color:var(--dim);font-size:11px;letter-spacing:1px;text-align:center;line-height:1.8;max-width:780px;padding:0 16px;}
 #game{position:absolute;top:0;left:0;display:none;background:#0a0f0a;}
-#minimap{position:absolute;top:14px;right:14px;border:2px solid var(--border);background:rgba(2,8,3,0.7);display:none;border-radius:4px;z-index:4;}
+#minimap{position:absolute;top:14px;right:14px;border:2px solid var(--border);background:rgba(2,8,3,0.7);display:none;border-radius:4px;z-index:4;cursor:crosshair;}
 #hud{position:absolute;inset:0;pointer-events:none;z-index:4;}
 .panel{position:absolute;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:10px 12px;font-size:12px;}
 .tl{top:14px;left:14px;width:200px;}
@@ -35,7 +35,7 @@ html,body{margin:0;padding:0;overflow:hidden;background:#000;font-family:'Consol
 .objLine{margin:3px 0;font-size:12px;}
 .objLine.done{color:var(--accent);}
 .objLine.fail{color:var(--danger);}
-.objPanel{top:14px;right:210px;width:270px;text-align:right;}
+.objPanel{top:14px;right:210px;width:280px;text-align:right;}
 .wlabel{color:var(--dim);font-size:10px;letter-spacing:1px;}
 .wname{color:var(--accent2);font-size:14px;margin:2px 0;}
 .ammo{font-size:22px;letter-spacing:1px;}
@@ -83,8 +83,8 @@ html,body{margin:0;padding:0;overflow:hidden;background:#000;font-family:'Consol
     <button id="btnArmory" class="btn">⚙ ARMORY</button>
   </div>
   <div class="controls-hint">
-    WASD Move &nbsp;|&nbsp; Mouse Aim &amp; Shoot &nbsp;|&nbsp; R Reload &nbsp;|&nbsp; Q Throw Grenade<br>
-    1/2/3 Select Squad, 4 Select All &nbsp;|&nbsp; Right-Click Move Order &nbsp;|&nbsp; G Grenade Order &nbsp;|&nbsp; H Hold Position &nbsp;|&nbsp; F Follow Me &nbsp;|&nbsp; Esc Pause
+    WASD Move &nbsp;|&nbsp; Mouse Aim &amp; Shoot &nbsp;|&nbsp; R Reload &nbsp;|&nbsp; Q Use Gadget<br>
+    1/2/3 Select Squad, 4 Select All &nbsp;|&nbsp; Right-Click Move Order (map or minimap) &nbsp;|&nbsp; G Gadget Order &nbsp;|&nbsp; H Hold Position &nbsp;|&nbsp; F Follow Me &nbsp;|&nbsp; Esc Pause
   </div>
 </div>
 
@@ -108,7 +108,7 @@ html,body{margin:0;padding:0;overflow:hidden;background:#000;font-family:'Consol
   <div id="objPanel" class="panel objPanel"></div>
   <div id="weaponPanel" class="panel bl"></div>
   <div id="bannerMsg" class="banner hidden"></div>
-  <div class="small-hint">WASD Move | Mouse Aim/Shoot | R Reload | Q Grenade | 1-4 Select | RClick Move | G Grenade Order | H Hold | F Follow | Esc Pause</div>
+  <div class="small-hint">WASD Move | Mouse Aim/Shoot | R Reload | Q Gadget | 1-4 Select | RClick Move (map/minimap) | G Gadget Order | H Hold | F Follow | Esc Pause</div>
 </div>
 
 <div id="pause" class="screen hidden">
@@ -144,14 +144,19 @@ const WEAPONS={
   sniper:{name:'Sniper',dmg:78,rate:900,range:1100,spread:0.5,mag:5,reload:1850,speed:2000,pellets:1},
 };
 const ARMOR={none:{name:'None',red:0,spd:1.1},light:{name:'Light',red:0.22,spd:1.0},heavy:{name:'Heavy',red:0.42,spd:0.86}};
-const UNIT_NAMES=['ALPHA','BRAVO','CHARLIE','DELTA','ECHO','FOXTROT'];
+const GADGETS={
+  grenade:{name:'Grenades (x3)', count:3},
+  medpack:{name:'Med Pack (x1)', count:1},
+  bazooka:{name:'Bazooka (x1)', count:1},
+};
+const UNIT_NAMES=['ALPHA','BRAVO','CHARLIE','DELTA','ECHO','FOXTROT']; //essential
 const VISION_RANGE=450, VISION_CONE=75, CLOSE_DETECT=60, REVEAL_RANGE=340;
 const EXTRACT_RADIUS=46;
 const DIFFICULTIES={
   easy:      {label:'EASY',        primaryCount:1, secMin:0, secMax:2, mapW:64,  mapH:46, roomMin:9,  roomMax:12, enemyMin:10, enemyMax:20},
   normal:    {label:'NORMAL',      primaryCount:1, secMin:1, secMax:2, mapW:64,  mapH:46, roomMin:9,  roomMax:12, enemyMin:15, enemyMax:30},
   hard:      {label:'HARD',        primaryCount:1, secMin:1, secMax:3, mapW:90,  mapH:65, roomMin:16, roomMax:22, enemyMin:20, enemyMax:40},
-  specialops:{label:'SPECIAL OPS', primaryCount:2, secMin:50, secMax:75, mapW:220, mapH:160, roomMin:500, roomMax:510, enemyMin:250, enemyMax:500},
+  specialops:{label:'SPECIAL OPS', primaryCount:2, secMin:1, secMax:3, mapW:110, mapH:80, roomMin:24, roomMax:32, enemyMin:25, enemyMax:50},
 };
 const DIFF_KEYS=['easy','normal','hard','specialops'];
 
@@ -163,17 +168,17 @@ let keys={}, mouse={x:0,y:0,down:false};
 let camera={x:0,y:0};
 let currentDifficulty='normal';
 let loadouts={ //essential
-  player:{weapon:'rifle',armor:'light',grenades:2},
-  alpha:{weapon:'smg',armor:'light',grenades:2},
-  bravo:{weapon:'rifle',armor:'light',grenades:1},
-  charlie:{weapon:'shotgun',armor:'heavy',grenades:1},
-  delta:{weapon:'shotgun',armor:'heavy',grenades:1},
-  echo:{weapon:'shotgun',armor:'heavy',grenades:1},
-  foxtrot:{weapon:'shotgun',armor:'heavy',grenades:1},
+  player:{weapon:'rifle',armor:'light',gadget:'grenade'},
+  alpha:{weapon:'smg',armor:'light',gadget:'grenade'},
+  bravo:{weapon:'rifle',armor:'light',gadget:'medpack'},
+  charlie:{weapon:'shotgun',armor:'heavy',gadget:'bazooka'},
+  delta:{weapon:'shotgun',armor:'heavy',gadget:'bazooka'},
+  echo:{weapon:'shotgun',armor:'heavy',gadget:'bazooka'},
+  foxtrot:{weapon:'shotgun',armor:'heavy',gadget:'bazooka'},
 };
 let level=null, player=null, squad=[], enemies=[], bullets=[], grenades=[], particles=[];
-let hostages=[], intelMarkers=[], crate=null, vehicle=null, stealthZone=null, extraction=null;
-let mission={primaries:[],secondaries:[],hvtEnemy:null,primaryDone:false,stealthFailed:false,kills:0,time:0,phase:'active',extractT:0};
+let hostages=[], intelMarkers=[], crate=null, vehicle=null, stealthZone=null, reconZone=null, bombSite=null, extraction=null;
+let mission={primaries:[],secondaries:[],primaryDone:false,stealthFailed:false,kills:0,time:0,phase:'active',extractT:0};
 let selSquad='all';
 let lastT=0;
 
@@ -202,6 +207,7 @@ function rnd(a,b){return a+Math.random()*(b-a);}
 function ri(a,b){return Math.floor(rnd(a,b+1));}
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
 function angDiff(a,b){let d=(b-a+Math.PI*3)%(Math.PI*2)-Math.PI; return d;}
+function inRect(p,r){ return p.x>=r.x && p.x<=r.x+r.w && p.y>=r.y && p.y<=r.y+r.h; }
 
 //============================ LEVEL GENERATION ============================
 function genLevel(mapW,mapH,roomMin,roomMax){
@@ -378,7 +384,8 @@ function navigateTo(u,tx,ty,dt,arriveDist){
   }
   if(u._navMode==='path' && u._navPath && u._navPath.length){
     let wp=u._navPath[u._navIdx];
-    while(wp && Math.hypot(u.x-wp.x,u.y-wp.y)<16 && u._navIdx<u._navPath.length-1){ u._navIdx++; wp=u._navPath[u._navIdx]; }
+    // Advance early (before fully reaching a waypoint) so corners get cut smoothly instead of hugging the inside wall.
+    while(wp && Math.hypot(u.x-wp.x,u.y-wp.y)<26 && u._navIdx<u._navPath.length-1){ u._navIdx++; wp=u._navPath[u._navIdx]; }
     if(wp) moveUnitToward(u,wp.x,wp.y,dt,12);
     if(wp && u._navIdx>=u._navPath.length-1 && Math.hypot(u.x-wp.x,u.y-wp.y)<18){ u._navMode='direct'; u._navPath=null; }
   } else {
@@ -393,7 +400,7 @@ class Unit{
     this.x=x;this.y=y;this.angle=0;this.team=team;this.r=11;
     this.hp=100;this.maxHp=100;this.speed=165;
     this.weaponKey='rifle';this.mag=25;this.reloading=false;this.reloadT=0;this.fireT=0;
-    this.grenades=0;this.alive=true;this.muzzleT=0;this.armorRed=0;
+    this.gadgetKind='grenade';this.gadgetCount=0;this.alive=true;this.muzzleT=0;this.armorRed=0;
   }
   get weapon(){return WEAPONS[this.weaponKey];}
   startReload(){ if(this.reloading||this.mag>=this.weapon.mag) return; this.reloading=true; this.reloadT=this.weapon.reload; sndReload(); }
@@ -430,7 +437,7 @@ window.addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
   if(k==='1') selSquad=0; else if(k==='2') selSquad=1; else if(k==='3') selSquad=2; else if(k==='4') selSquad=3; else if(k==='5') selSquad=4; else if(k==='6') selSquad=5; else if(k==='7') selSquad='all';//essential
   if(k==='r') player.startReload();
-  if(k==='q') throwPlayerGrenade();
+  if(k==='q') usePlayerGadget();
   if(k==='f') issueOrder({type:'FOLLOW'});
   if(k==='h') issueOrder({type:'HOLD'});
   if(e.key==='Escape') togglePause();
@@ -446,29 +453,15 @@ canvas.addEventListener('contextmenu',e=>{
   const wp=screenToWorld(mouse.x,mouse.y);
   issueOrder({type:'MOVE',x:wp.x,y:wp.y});
 });
-
-//move-through-map
-// Enable Move Orders by Left or Right Clicking on the Minimap
-mini.addEventListener('mousedown', e => {
+mini.addEventListener('contextmenu',e=>{
   e.preventDefault();
-  if (state !== 'PLAYING') return;
-
-  // Get click position relative to the minimap canvas
-  const rc = mini.getBoundingClientRect();
-  const mx = e.clientX - rc.left;
-  const my = e.clientY - rc.top;
-
-  // Scale minimap coordinates back up to full World coordinates
-  const worldX = (mx / mini.width) * (level.w * TILE);
-  const worldY = (my / mini.height) * (level.h * TILE);
-
-  // Issue the move order to the selected squad members
-  issueOrder({ type: 'MOVE', x: worldX, y: worldY });
+  if(state!=='PLAYING') return;
+  const rc=mini.getBoundingClientRect();
+  const mx=e.clientX-rc.left, my=e.clientY-rc.top;
+  const sx=mini.width/(level.w*TILE), sy=mini.height/(level.h*TILE);
+  const wx=clamp(mx/sx,0,level.w*TILE), wy=clamp(my/sy,0,level.h*TILE);
+  issueOrder({type:'MOVE',x:wx,y:wy});
 });
-
-// Prevent context menu from popping up when right-clicking the minimap
-mini.addEventListener('contextmenu', e => e.preventDefault());
-
 function worldMouse(){ return screenToWorld(mouse.x,mouse.y); }
 function screenToWorld(sx,sy){ return {x:sx+camera.x, y:sy+camera.y}; }
 function setOrder(u,order){ u.order=order; u._navMode=null; u._navPath=null; u._navIdx=0; u._navRepathT=0; }
@@ -480,10 +473,14 @@ function issueOrder(order){
     else setOrder(u,{...order});
   }
 }
-function throwGrenadeOrder(){
+function gadgetOrder(){
   const wp=worldMouse();
   const targets = selSquad==='all'? squad : [squad[selSquad]];
-  for(const u of targets){ if(!u||u.downed) continue; setOrder(u,{type:'GRENADE',x:wp.x,y:wp.y}); }
+  for(const u of targets){
+    if(!u||u.downed||u.gadgetCount<=0) continue;
+    if(u.gadgetKind==='medpack'){ useGadget(u,u.x,u.y); }
+    else setOrder(u,{type:'GADGET',x:wp.x,y:wp.y});
+  }
 }
 
 //============================ MENUS / ARMORY ============================
@@ -528,8 +525,7 @@ function showScreen(name){
 }
 function buildArmory(){
   const grid=document.getElementById('armoryGrid'); grid.innerHTML='';
-  const units=[{key:'player',label:'YOU'},{key:'alpha',label:'ALPHA'},{key:'bravo',label:'BRAVO'},{key:'charlie',label:'CHARLIE'},{key:'delta',label:'DELTA'},{key:'echo',label:'ECHO'},{key:'foxtrot',label:'FOXTROT'}]; //essential
-  for(const u of units){
+const units=[{key:'player',label:'YOU'},{key:'alpha',label:'ALPHA'},{key:'bravo',label:'BRAVO'},{key:'charlie',label:'CHARLIE'},{key:'delta',label:'DELTA'},{key:'echo',label:'ECHO'},{key:'foxtrot',label:'FOXTROT'}]; //essential  for(const u of units){
     const card=document.createElement('div'); card.className='unitCard';
     card.innerHTML=`<h3>${u.label}</h3>
       <div class="optRow"><div class="optLabel">WEAPON</div><div class="optBtns" data-cat="weapon" data-unit="${u.key}">
@@ -538,8 +534,8 @@ function buildArmory(){
       <div class="optRow"><div class="optLabel">ARMOR</div><div class="optBtns" data-cat="armor" data-unit="${u.key}">
         ${Object.keys(ARMOR).map(a=>`<button class="optBtn" data-val="${a}">${ARMOR[a].name}</button>`).join('')}
       </div></div>
-      <div class="optRow"><div class="optLabel">GRENADES</div><div class="optBtns" data-cat="grenades" data-unit="${u.key}">
-        ${[0,1,2,3].map(n=>`<button class="optBtn" data-val="${n}">${n}</button>`).join('')}
+      <div class="optRow"><div class="optLabel">GADGET</div><div class="optBtns" data-cat="gadget" data-unit="${u.key}">
+        ${Object.keys(GADGETS).map(g=>`<button class="optBtn" data-val="${g}">${GADGETS[g].name}</button>`).join('')}
       </div></div>`;
     grid.appendChild(card);
   }
@@ -550,7 +546,7 @@ function buildArmory(){
       const cur = String(loadouts[unitKey][cat]);
       if(val===cur) btn.classList.add('active');
       btn.onclick=()=>{
-        loadouts[unitKey][cat] = cat==='grenades'? parseInt(val): val;
+        loadouts[unitKey][cat]=val;
         row.querySelectorAll('.optBtn').forEach(b=>b.classList.remove('active'));
         btn.classList.add('active');
       };
@@ -565,13 +561,9 @@ function resetHUD(){ state='MENU'; }
 
 //============================ MISSION START ============================
 function pickPrimaries(diff){
-  const types=['eliminate','hostage','intel'];
+  const types=['hvt','hostage','intel','secure'];
   const result=[];
-  for(let i=0;i<diff.primaryCount;i++){
-    let t=types[ri(0,2)];
-    if(t==='eliminate' && result.includes('eliminate')) t=types[ri(1,2)];
-    result.push(t);
-  }
+  for(let i=0;i<diff.primaryCount;i++) result.push(types[ri(0,types.length-1)]);
   return result;
 }
 function startMission(){
@@ -583,24 +575,22 @@ function startMission(){
   player=new Soldier(sp.x,sp.y,true,'YOU');
   applyLoadout(player,loadouts.player);
   squad=[];
-  const offsets=[{x:46,y:34},{x:46,y:34},{x:72,y:0},{x:72,y:50},{x:72,y:50},{x:98,y:0}];//essential
-  for(let i=0;i<6;i++){//essential
+  const offsets=[{x:-46,y:-34},{x:-46,y:34},{x:-72,y:0},{x:72,y:50},{x:72,y:50},{x:98,y:0}];//essential
+  for(let i=0;i<6;i++){ //essential
     const o=offsets[i];
     const s=new Soldier(sp.x+o.x*0.4,sp.y+o.y*0.4,false,UNIT_NAMES[i]);
-    applyLoadout(s, loadouts[['alpha','bravo','charlie','delta','echo','foxtrot'][i]]);//essential
+    applyLoadout(s, loadouts[['alpha','bravo','charlie','delta','echo','foxtrot'][i]]);
     s.formOffset=o;
     squad.push(s);
   }
   extraction={x:spawnRoom.cx*TILE,y:spawnRoom.cy*TILE};
   const otherRooms=rooms.slice(1);
 
-  // secondary pool decided up front, so we know whether an HVT needs to exist
-  const secPool=['hvt','armory','vehicle','stealth'];
+  const secPool=['eliminate','armory','vehicle','stealth','recon','defuse'];
   const secCount=ri(diff.secMin,diff.secMax);
   const chosenSec=[];
   while(chosenSec.length<secCount && secPool.length){ const idx=ri(0,secPool.length-1); chosenSec.push(secPool.splice(idx,1)[0]); }
 
-  // regular troop count (HVT is additional, not part of this range)
   const enemyCount=ri(diff.enemyMin,diff.enemyMax);
   enemies=[];
   for(let i=0;i<enemyCount;i++){
@@ -608,15 +598,7 @@ function startMission(){
     const pt=randPointInRoom(r);
     enemies.push(new Enemy(pt.x,pt.y,r,false));
   }
-  let hvtEnemy=null;
-  if(chosenSec.includes('hvt')){
-    const r=otherRooms[ri(0,otherRooms.length-1)];
-    const pt=randPointInRoom(r);
-    hvtEnemy=new Enemy(pt.x,pt.y,r,true);
-    enemies.push(hvtEnemy);
-  }
 
-  // spread objective markers across distinct rooms where possible
   const usedRoomIdx=new Set();
   function pickObjRoom(){
     const availIdx=[]; for(let i=0;i<otherRooms.length;i++) if(!usedRoomIdx.has(i)) availIdx.push(i);
@@ -629,8 +611,12 @@ function startMission(){
   hostages=[]; intelMarkers=[];
   const primaries=[];
   for(const t of primaryTypes){
-    if(t==='eliminate'){ primaries.push({type:'eliminate',done:false,ref:null}); }
-    else if(t==='hostage'){
+    if(t==='hvt'){
+      const r=pickObjRoom(); const pt=randPointInRoom(r);
+      const hvtE=new Enemy(pt.x,pt.y,r,true);
+      enemies.push(hvtE);
+      primaries.push({type:'hvt',done:false,ref:hvtE});
+    } else if(t==='hostage'){
       const r=pickObjRoom(); const pt=randPointInRoom(r);
       const h={x:pt.x,y:pt.y,following:false};
       hostages.push(h); primaries.push({type:'hostage',done:false,ref:h});
@@ -638,17 +624,30 @@ function startMission(){
       const r=pickObjRoom(); const pt=randPointInRoom(r);
       const m={x:pt.x,y:pt.y,collected:false};
       intelMarkers.push(m); primaries.push({type:'intel',done:false,ref:m});
+    } else if(t==='secure'){
+      const r=pickObjRoom();
+      const zone={x:r.x*TILE,y:r.y*TILE,w:r.w*TILE,h:r.h*TILE};
+      const guardCount=ri(3,6);
+      const guards=[];
+      for(let i=0;i<guardCount;i++){
+        const pt=randPointInRoom(r);
+        const ge=new Enemy(pt.x,pt.y,r,false);
+        enemies.push(ge); guards.push(ge);
+      }
+      primaries.push({type:'secure',done:false,ref:{zone,guards}});
     }
   }
 
-  crate=null; vehicle=null; stealthZone=null;
+  crate=null; vehicle=null; stealthZone=null; reconZone=null; bombSite=null;
   for(const c of chosenSec){
     if(c==='armory'){ const r=pickObjRoom(); const pt=randPointInRoom(r); crate={x:pt.x,y:pt.y,w:30,h:30,hp:80,maxHp:80,destroyed:false}; }
     else if(c==='vehicle'){ const r=pickObjRoom(); const pt=randPointInRoom(r); vehicle={x:pt.x,y:pt.y,w:50,h:34,hp:120,maxHp:120,disabled:false}; }
     else if(c==='stealth'){ const r=pickObjRoom(); stealthZone={x:r.x*TILE,y:r.y*TILE,w:r.w*TILE,h:r.h*TILE}; }
+    else if(c==='recon'){ const r=pickObjRoom(); reconZone={x:r.x*TILE,y:r.y*TILE,w:r.w*TILE,h:r.h*TILE,timer:0,done:false}; }
+    else if(c==='defuse'){ const r=pickObjRoom(); const pt=randPointInRoom(r); bombSite={x:pt.x,y:pt.y,timeLeft:300,defuseProgress:0,defused:false,exploded:false}; }
   }
 
-  mission={primaries,secondaries:chosenSec,hvtEnemy,primaryDone:false,stealthFailed:false,
+  mission={primaries,secondaries:chosenSec,primaryDone:false,stealthFailed:false,
     kills:0,time:0,phase:'active',extractT:0};
 
   bullets=[]; grenades=[]; particles=[];
@@ -662,11 +661,12 @@ function startMission(){
   refreshSquadPanel(); refreshObjPanel(); refreshWeaponPanel();
 }
 function applyLoadout(unit,lo){
-  unit.weaponKey=lo.weapon; unit.mag=WEAPONS[lo.weapon].mag; unit.grenades=lo.grenades;
+  unit.weaponKey=lo.weapon; unit.mag=WEAPONS[lo.weapon].mag;
+  unit.gadgetKind=lo.gadget; unit.gadgetCount=GADGETS[lo.gadget].count;
   unit.armorRed=ARMOR[lo.armor].red; unit.speed=165*ARMOR[lo.armor].spd; unit.armorKey=lo.armor;
 }
 function missionBriefText(){
-  const t={eliminate:'ELIMINATE ALL HOSTILES',hostage:'RESCUE HOSTAGE & EXTRACT',intel:'RECOVER INTEL'};
+  const t={hvt:'ELIMINATE HVT',hostage:'RESCUE HOSTAGE & EXTRACT',intel:'RECOVER INTEL',secure:'SECURE THE AREA'};
   const parts=mission.primaries.map((p,i)=> (mission.primaries.length>1?('OBJ '+(i+1)+': '):'') + t[p.type]);
   return 'MISSION: '+parts.join('   //   ');
 }
@@ -690,22 +690,37 @@ function tryShoot(shooter,targetAngle,team){
   shooter.mag--;
   fireBullet(shooter,targetAngle,team);
 }
-function throwGrenadeFrom(u,tx,ty){
-  if(u.grenades<=0) return;
-  u.grenades--;
+function useGadget(u, tx, ty){
+  if(u.gadgetCount<=0) return;
+  u.gadgetCount--;
+  if(u.gadgetKind==='medpack'){ healPulse(u); }
+  else { throwGadgetProjectile(u, tx, ty, u.gadgetKind==='bazooka'); }
+}
+function throwGadgetProjectile(u, tx, ty, isBazooka){
   const d=dist(u,{x:tx,y:ty})||1;
   const speed=Math.min(620, d*2.2+200);
-  grenades.push({x:u.x,y:u.y,tx,ty,speed,fuse:1.7,team:u.team,traveled:0,dist:d});
+  grenades.push({x:u.x,y:u.y,tx,ty,speed,fuse:isBazooka?1.9:1.7,team:u.team,traveled:0,dist:d,bazooka:!!isBazooka});
 }
-function throwPlayerGrenade(){
+function usePlayerGadget(){
   if(state!=='PLAYING') return;
   const wp=worldMouse();
-  throwGrenadeFrom(player,wp.x,wp.y);
+  useGadget(player, wp.x, wp.y);
 }
-function explode(x,y,team){
+function healPulse(u){
+  sndChime();
+  particles.push({x:u.x,y:u.y,life:0.5,maxLife:0.5,type:'heal',r:16});
+  const radius=150;
+  const allies=[player,...squad];
+  for(const a of allies){
+    if(!a.alive) continue;
+    if(dist(a,u)<=radius){ a.hp=Math.min(a.maxHp, a.hp + a.maxHp*0.75); }
+  }
+}
+function explode(x,y,team,isBazooka){
   sndExplosion();
-  particles.push({x,y,life:0.4,maxLife:0.4,type:'explosion',r:14});
-  const radius=115, maxDmg=95;
+  const radius = isBazooka? 190:115;
+  const maxDmg = isBazooka? 160:95;
+  particles.push({x,y,life:isBazooka?0.6:0.4,maxLife:isBazooka?0.6:0.4,type:'explosion',r:isBazooka?22:14});
   const allUnits=[player,...squad,...enemies];
   for(const u of allUnits){
     if(!u.alive) continue;
@@ -714,7 +729,29 @@ function explode(x,y,team){
   }
   if(crate && !crate.destroyed && dist({x,y},crate)<radius+16) crate.hp-=maxDmg*0.8;
   if(vehicle && !vehicle.disabled && dist({x,y},vehicle)<radius+20) vehicle.hp-=maxDmg*0.8;
-  for(const e of enemies){ if(e.alive && dist(e,{x,y})<420){ e.state='ALERT'; e.lastKnown={x,y}; e.alertTimer=4; } }
+  for(const e of enemies){ if(e.alive && dist(e,{x,y})<radius+300){ e.state='ALERT'; e.lastKnown={x,y}; e.alertTimer=4; } }
+  if(isBazooka) carveExplosionHole(x,y,radius*0.65);
+}
+function carveExplosionHole(x,y,radius){
+  const tx0=Math.floor((x-radius)/TILE), tx1=Math.floor((x+radius)/TILE);
+  const ty0=Math.floor((y-radius)/TILE), ty1=Math.floor((y+radius)/TILE);
+  for(let ty=ty0;ty<=ty1;ty++){
+    for(let tx=tx0;tx<=tx1;tx++){
+      if(tx<0||ty<0||tx>=level.w||ty>=level.h) continue;
+      const cx=tx*TILE+TILE/2, cy=ty*TILE+TILE/2;
+      if(Math.hypot(cx-x,cy-y)<=radius) level.grid[ty][tx]=1;
+    }
+  }
+}
+function bigExplosion(x,y){
+  sndExplosion();
+  particles.push({x,y,life:0.8,maxLife:0.8,type:'explosion',r:30});
+  const radius=260;
+  const allUnits=[player,...squad,...enemies];
+  for(const u of allUnits){ if(!u.alive) continue; if(dist(u,{x,y})<radius) u.takeDamage(999); }
+  if(crate && !crate.destroyed && dist({x,y},crate)<radius) crate.hp=0;
+  if(vehicle && !vehicle.disabled && dist({x,y},vehicle)<radius) vehicle.hp=0;
+  carveExplosionHole(x,y,radius*0.8);
 }
 
 //============================ UPDATE ============================
@@ -726,6 +763,7 @@ function update(dt){
   updateBullets(dt);
   updateGrenades(dt);
   updateParticles(dt);
+  updateSecondaries(dt);
   checkObjectives(dt);
   updateCamera();
   refreshSquadPanel(); refreshObjPanel(); refreshWeaponPanel();
@@ -751,19 +789,27 @@ function simpleFormationTarget(u){
   const ox=u.formOffset.x, oy=u.formOffset.y;
   return {x:player.x+ox*ca-oy*sa, y:player.y+ox*sa+oy*ca};
 }
+// Low-level single-step movement with wall collision. On a blocked direct step, deterministically
+// slides along the nearest open angle (closest offsets tried first) instead of random jitter, so
+// units clear corners in a single frame rather than "peeking" for several frames.
 function moveUnitToward(u,tx,ty,dt,arriveDist){
   const d=dist(u,{x:tx,y:ty});
   if(d<(arriveDist||14)) return true;
   const a=ang(u,{x:tx,y:ty});
-  let vx=Math.cos(a),vy=Math.sin(a);
-  const nx=u.x+vx*u.speed*dt, ny=u.y+vy*u.speed*dt;
+  const step=u.speed*dt;
+  const dx=Math.cos(a)*step, dy=Math.sin(a)*step;
   let moved=false;
+  const nx=u.x+dx, ny=u.y+dy;
   if(canMove(nx,u.y,u.r)){ u.x=nx; moved=true; }
   if(canMove(u.x,ny,u.r)){ u.y=ny; moved=true; }
-  if(!moved){
-    const ja=a+(Math.random()<0.5?1:-1)*0.9;
-    const jx=u.x+Math.cos(ja)*u.speed*dt, jy=u.y+Math.sin(ja)*u.speed*dt;
-    if(canMove(jx,jy,u.r)){ u.x=jx; u.y=jy; }
+  if(moved) return false;
+  const offsets=[15,30,45,60,90,120,150];
+  for(const off of offsets){
+    for(const sign of [1,-1]){
+      const ja=a+sign*off*Math.PI/180;
+      const jx=u.x+Math.cos(ja)*step, jy=u.y+Math.sin(ja)*step;
+      if(canMove(jx,jy,u.r)){ u.x=jx; u.y=jy; return false; }
+    }
   }
   return false;
 }
@@ -785,13 +831,14 @@ function updateSquadUnit(u,dt){
       break;
     }
     case 'HOLD': { break; }
-    case 'GRENADE': {
+    case 'GADGET': {
+      if(u.gadgetKind==='medpack'){ useGadget(u,u.x,u.y); setOrder(u,{type:'HOLD',x:u.x,y:u.y}); break; }
       const d=dist(u,{x:u.order.x,y:u.order.y});
       if(d>340){
         navigateTo(u,u.order.x,u.order.y,dt,300);
         if(!target) u.angle=ang(u,{x:u.order.x,y:u.order.y});
       } else {
-        throwGrenadeFrom(u,u.order.x,u.order.y);
+        useGadget(u,u.order.x,u.order.y);
         setOrder(u,{type:'HOLD',x:u.x,y:u.y});
       }
       break;
@@ -858,8 +905,29 @@ function updateEnemy(e,dt){
     }
   }
 }
-function inRect(p,r){ return p.x>=r.x && p.x<=r.x+r.w && p.y>=r.y && p.y<=r.y+r.h; }
-
+function updateSecondaries(dt){
+  if(mission.phase==='done') return;
+  if(reconZone && !reconZone.done){
+    const inside=inRect(player,reconZone);
+    if(inside){ reconZone.timer+=dt; if(reconZone.timer>=2.0){ reconZone.done=true; sndChime(); showBanner('AREA RECON COMPLETE',false,2.4); } }
+    else reconZone.timer=0;
+  }
+  if(bombSite && !bombSite.defused && !bombSite.exploded){
+    bombSite.timeLeft-=dt;
+    const near=dist(player,bombSite)<50;
+    if(near){
+      bombSite.defuseProgress+=dt;
+      if(bombSite.defuseProgress>=5.0){ bombSite.defused=true; sndChime(); showBanner('BOMB DEFUSED',false,2.6); }
+    } else {
+      bombSite.defuseProgress=Math.max(0,bombSite.defuseProgress-dt*2);
+    }
+    if(bombSite.timeLeft<=0 && !bombSite.defused){
+      bombSite.exploded=true;
+      bigExplosion(bombSite.x,bombSite.y);
+      showBanner('THE BOMB HAS DETONATED',true,3.4);
+    }
+  }
+}
 function updateBullets(dt){
   for(let i=bullets.length-1;i>=0;i--){
     const b=bullets[i];
@@ -893,7 +961,7 @@ function updateGrenades(dt){
     const remain=dist(g,{x:g.tx,y:g.ty});
     const step=Math.min(remain, g.speed*dt);
     if(remain>4){ g.x+=Math.cos(a)*step; g.y+=Math.sin(a)*step; }
-    if(g.fuse<=0){ explode(g.x,g.y,g.team); grenades.splice(i,1); }
+    if(g.fuse<=0){ explode(g.x,g.y,g.team,g.bazooka); grenades.splice(i,1); }
   }
 }
 function updateParticles(dt){
@@ -923,8 +991,8 @@ function checkObjectives(dt){
   if(!player.alive){ endMission(false); return; }
   for(const p of mission.primaries){
     if(p.done) continue;
-    if(p.type==='eliminate'){
-      if(enemies.length>0 && enemies.every(e=>!e.alive)) markObjectiveDone(p);
+    if(p.type==='hvt'){
+      if(!p.ref.alive) markObjectiveDone(p);
     } else if(p.type==='hostage'){
       const h=p.ref;
       if(!h.following && dist(player,h)<40){ h.following=true; sndChime(); showBanner('HOSTAGE SECURED — RETURN TO EXTRACTION ZONE',false,2.6); }
@@ -938,6 +1006,8 @@ function checkObjectives(dt){
         const allies=[player,...squad];
         if(allies.some(a=>a.alive&&dist(a,m)<40)){ m.collected=true; markObjectiveDone(p); }
       }
+    } else if(p.type==='secure'){
+      if(p.ref.guards.every(g=>!g.alive)) markObjectiveDone(p);
     }
   }
   if(mission.primaryDone){
@@ -961,13 +1031,15 @@ function endMission(success){
     const label='Primary Objective'+(mission.primaries.length>1?(' '+(i+1)):'');
     rows.push([label, p.done?1000:0]);
   });
-  const labels={hvt:'Eliminate HVT',armory:'Destroy Armory',vehicle:'Disable Vehicle',stealth:'Maintain Stealth'};
+  const labels={eliminate:'Eliminate All Hostiles',armory:'Destroy Armory',vehicle:'Disable Vehicle',stealth:'Maintain Stealth',recon:'Area Recon',defuse:'Defuse Bomb'};
   for(const s of mission.secondaries){
     let done=false;
-    if(s==='hvt') done = mission.hvtEnemy && !mission.hvtEnemy.alive;
+    if(s==='eliminate') done = enemies.length>0 && enemies.every(e=>!e.alive);
     if(s==='armory') done = crate && crate.destroyed;
     if(s==='vehicle') done = vehicle && vehicle.disabled;
     if(s==='stealth') done = !mission.stealthFailed;
+    if(s==='recon') done = reconZone && reconZone.done;
+    if(s==='defuse') done = bombSite && bombSite.defused;
     if(done){ rows.push([labels[s], 300]); }
     else rows.push([labels[s]+' (failed)',0]);
   }
@@ -1014,22 +1086,28 @@ function refreshSquadPanel(){
 function refreshObjPanel(){
   if(state!=='PLAYING'&&state!=='PAUSED') return;
   const p=document.getElementById('objPanel');
-  const ptxtMap={eliminate:'Eliminate all hostile forces',hostage:'Rescue hostage & extract',intel:'Recover the intel'};
+  const ptxtMap={hvt:'Eliminate the HVT',hostage:'Rescue hostage & extract',intel:'Recover the intel',secure:'Secure the marked area'};
   let html=`<div class="objTitle">OBJECTIVES — ${DIFFICULTIES[currentDifficulty].label}</div>`;
   mission.primaries.forEach((pr,i)=>{
     const tag = mission.primaries.length>1? `(${i+1}) `:'';
     html+=`<div class="objLine ${pr.done?'done':''}">${pr.done?'✓':'▸'} ${tag}${ptxtMap[pr.type]}</div>`;
   });
-  const labels={hvt:'Eliminate HVT',armory:'Destroy enemy armory',vehicle:'Disable enemy vehicle',stealth:'Avoid detection in zone'};
+  const labels={eliminate:'Eliminate all hostiles',armory:'Destroy enemy armory',vehicle:'Disable enemy vehicle',stealth:'Avoid detection in zone',recon:'Recon the marked area',defuse:'Defuse the bomb'};
   for(const s of mission.secondaries){
-    let done=false,failed=false;
-    if(s==='hvt') done = mission.hvtEnemy && !mission.hvtEnemy.alive;
+    let done=false,failed=false,extra='';
+    if(s==='eliminate') done = enemies.length>0 && enemies.every(e=>!e.alive);
     if(s==='armory') done = crate && crate.destroyed;
     if(s==='vehicle') done = vehicle && vehicle.disabled;
-    if(s==='stealth'){ failed=mission.stealthFailed; done=false; }
+    if(s==='stealth'){ failed=mission.stealthFailed; }
+    if(s==='recon'){ done = reconZone && reconZone.done; if(reconZone && !done && reconZone.timer>0) extra=' ('+reconZone.timer.toFixed(1)+'/2.0s)'; }
+    if(s==='defuse'){
+      done = bombSite && bombSite.defused;
+      failed = bombSite && bombSite.exploded;
+      if(bombSite && !done && !failed){ const mm=Math.floor(bombSite.timeLeft/60), ss=Math.floor(bombSite.timeLeft%60); extra=' — '+mm+':'+String(ss).padStart(2,'0')+(bombSite.timeLeft<30?' ⚠':''); }
+    }
     const cls = done?'done':(failed?'fail':'');
     const icon = done?'✓':(failed?'✗':'○');
-    html+=`<div class="objLine ${cls}">${icon} ${labels[s]}</div>`;
+    html+=`<div class="objLine ${cls}">${icon} ${labels[s]}${extra}</div>`;
   }
   if(mission.primaryDone){
     if(mission.phase==='extracting') html+=`<div class="objLine done">EXTRACTING ${Math.ceil(mission.extractT)}s</div>`;
@@ -1042,9 +1120,10 @@ function refreshWeaponPanel(){
   const p=document.getElementById('weaponPanel');
   const w=player.weapon;
   const selName = selSquad==='all'? 'ALL SQUAD' : UNIT_NAMES[selSquad];
+  const gd=GADGETS[player.gadgetKind];
   p.innerHTML=`<div class="wlabel">WEAPON</div><div class="wname">${w.name}</div>
     <div class="ammo ${player.mag===0?'empty':''}">${player.reloading?'RELOADING...':player.mag+' / '+w.mag}</div>
-    <div class="wlabel" style="margin-top:8px;">GRENADES: ${player.grenades}</div>
+    <div class="wlabel" style="margin-top:8px;">GADGET</div><div class="wname" style="font-size:13px;">${gd.name} — ${player.gadgetCount} left</div>
     <div class="wlabel" style="margin-top:8px;">SQUAD ORDER TARGET</div><div class="wname" style="font-size:13px;">${selName}</div>`;
 }
 
@@ -1069,7 +1148,25 @@ function render(){
     }
   }
   if(stealthZone){ ctx.fillStyle='rgba(232,179,57,0.08)'; ctx.fillRect(stealthZone.x,stealthZone.y,stealthZone.w,stealthZone.h);
-    ctx.strokeStyle='rgba(232,179,57,0.4)'; ctx.strokeRect(stealthZone.x,stealthZone.y,stealthZone.w,stealthZone.h); }
+    ctx.strokeStyle='rgba(232,179,57,0.4)'; ctx.strokeRect(stealthZone.x,stealthZone.y,stealthZone.w,stealthZone.h);
+    ctx.fillStyle='#e8b339'; ctx.font='10px Consolas'; ctx.textAlign='center'; ctx.fillText('STEALTH ZONE',stealthZone.x+stealthZone.w/2,stealthZone.y-6); }
+  if(reconZone && !reconZone.done){
+    ctx.fillStyle='rgba(95,208,232,0.08)'; ctx.fillRect(reconZone.x,reconZone.y,reconZone.w,reconZone.h);
+    ctx.strokeStyle='rgba(95,208,232,0.45)'; ctx.strokeRect(reconZone.x,reconZone.y,reconZone.w,reconZone.h);
+    ctx.fillStyle='#5fd0e8'; ctx.font='10px Consolas'; ctx.textAlign='center';
+    ctx.fillText('RECON ZONE'+(reconZone.timer>0?(' '+reconZone.timer.toFixed(1)+'/2.0s'):''), reconZone.x+reconZone.w/2, reconZone.y-6);
+  }
+  for(const p of mission.primaries){
+    if(p.type==='secure'){
+      const z=p.ref.zone;
+      ctx.fillStyle = p.done? 'rgba(127,216,88,0.08)':'rgba(255,85,85,0.10)';
+      ctx.fillRect(z.x,z.y,z.w,z.h);
+      ctx.strokeStyle = p.done? 'rgba(127,216,88,0.5)':'rgba(255,85,85,0.5)';
+      ctx.strokeRect(z.x,z.y,z.w,z.h);
+      ctx.fillStyle = p.done? '#7fd858':'#ff8888'; ctx.font='10px Consolas'; ctx.textAlign='center';
+      ctx.fillText('SECURE ZONE'+(p.done?' ✓':' — '+p.ref.guards.filter(g=>g.alive).length+' LEFT'), z.x+z.w/2, z.y-6);
+    }
+  }
   ctx.fillStyle='rgba(127,216,88,0.25)'; ctx.beginPath(); ctx.arc(extraction.x,extraction.y,EXTRACT_RADIUS,0,7); ctx.fill();
   ctx.strokeStyle='#7fd858'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(extraction.x,extraction.y,EXTRACT_RADIUS,0,7); ctx.stroke();
   ctx.fillStyle='#7fd858'; ctx.font='10px Consolas'; ctx.textAlign='center'; ctx.fillText('EXTRACT',extraction.x,extraction.y-EXTRACT_RADIUS-8);
@@ -1090,6 +1187,24 @@ function render(){
     ctx.fillStyle='#fff'; ctx.font='9px Consolas'; ctx.textAlign='center';
     ctx.fillText('HOSTAGE'+(hostages.length>1?(' '+(i+1)):''), h.x, h.y-16);
   });
+  if(bombSite){
+    const blink=Math.sin(mission.time*6)>0;
+    if(!bombSite.defused && !bombSite.exploded){
+      ctx.fillStyle = blink? '#ff3333':'#aa1111';
+      ctx.beginPath(); ctx.arc(bombSite.x,bombSite.y,12,0,7); ctx.fill();
+      ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(bombSite.x,bombSite.y,12,0,7); ctx.stroke();
+      const mm=Math.floor(bombSite.timeLeft/60), ss=Math.floor(bombSite.timeLeft%60);
+      ctx.fillStyle='#ff8888'; ctx.font='10px Consolas'; ctx.textAlign='center';
+      ctx.fillText('BOMB '+mm+':'+String(ss).padStart(2,'0'), bombSite.x, bombSite.y-20);
+      if(bombSite.defuseProgress>0){
+        ctx.strokeStyle='#7fd858'; ctx.lineWidth=3;
+        ctx.beginPath(); ctx.arc(bombSite.x,bombSite.y,18,-Math.PI/2,-Math.PI/2+Math.PI*2*(bombSite.defuseProgress/5)); ctx.stroke();
+      }
+    } else if(bombSite.defused){
+      ctx.fillStyle='#7fd858'; ctx.beginPath(); ctx.arc(bombSite.x,bombSite.y,10,0,7); ctx.fill();
+      ctx.fillStyle='#7fd858'; ctx.font='10px Consolas'; ctx.textAlign='center'; ctx.fillText('DEFUSED', bombSite.x, bombSite.y-18);
+    }
+  }
 
   for(const e of enemies){
     if(!e.spotted) continue;
@@ -1117,12 +1232,17 @@ function render(){
 
   ctx.strokeStyle='rgba(255,230,150,0.9)'; ctx.lineWidth=2;
   for(const b of bullets){ ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(b.x-b.vx*0.012,b.y-b.vy*0.012); ctx.stroke(); }
-  for(const g of grenades){ ctx.fillStyle='#3a3'; ctx.beginPath(); ctx.arc(g.x,g.y,5,0,7); ctx.fill();
-    ctx.strokeStyle='#ff5555'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(g.x,g.y,9,0,7*(1-g.fuse/1.7)); ctx.stroke(); }
+  for(const g of grenades){
+    ctx.fillStyle = g.bazooka? '#ff8844':'#3a3';
+    ctx.beginPath(); ctx.arc(g.x,g.y,g.bazooka?8:5,0,7); ctx.fill();
+    ctx.strokeStyle='#ff5555'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(g.x,g.y,(g.bazooka?13:9),0,7*(1-g.fuse/(g.bazooka?1.9:1.7))); ctx.stroke();
+  }
   for(const p of particles){
     const t=p.life/p.maxLife;
     if(p.type==='spark'){ ctx.fillStyle=`rgba(255,220,120,${t})`; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7); ctx.fill(); }
     else if(p.type==='explosion'){ ctx.strokeStyle=`rgba(255,150,60,${t})`; ctx.lineWidth=4; ctx.beginPath(); ctx.arc(p.x,p.y,p.r+(1-t)*90,0,7); ctx.stroke(); }
+    else if(p.type==='heal'){ ctx.strokeStyle=`rgba(120,255,160,${t})`; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(p.x,p.y,p.r+(1-t)*150,0,7); ctx.stroke(); }
   }
   if(selSquad!=='all' && squad[selSquad] && squad[selSquad].order.type==='MOVE'){
     const o=squad[selSquad].order; ctx.strokeStyle='#5fd0e8'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(o.x,o.y,10,0,7); ctx.stroke();
@@ -1151,6 +1271,11 @@ function renderMinimap(){
   mctx.fillStyle='#5fd0e8'; for(const s of squad){ if(!s.downed){ mctx.beginPath(); mctx.arc(s.x*sx,s.y*sy,2.2,0,7); mctx.fill(); } }
   for(const e of enemies){ if(e.spotted && !e.downed){ mctx.fillStyle=e.isHVT?'#ffd24d':'#d84a4a'; mctx.beginPath(); mctx.arc(e.x*sx,e.y*sy,2.2,0,7); mctx.fill(); } }
   mctx.fillStyle='#e8b339'; mctx.beginPath(); mctx.arc(extraction.x*sx,extraction.y*sy,3,0,7); mctx.fill();
+  if(bombSite && !bombSite.defused){
+    const blink=Math.sin(mission.time*6)>0;
+    mctx.fillStyle= bombSite.exploded? '#552222' : (blink?'#ff3333':'#aa1111');
+    mctx.beginPath(); mctx.arc(bombSite.x*sx,bombSite.y*sy,3.2,0,7); mctx.fill();
+  }
   mctx.strokeStyle='rgba(127,216,88,0.6)'; mctx.strokeRect(camera.x*sx,camera.y*sy,canvas.width*sx,canvas.height*sy);
 }
 
@@ -1159,7 +1284,7 @@ function loop(t){
   requestAnimationFrame(loop);
   if(state==='PLAYING'){
     const dt=Math.min(0.05,(t-lastT)/1000); lastT=t;
-    if(keys['g']) { if(!keys['_gLatch']){ throwGrenadeOrder(); keys['_gLatch']=true; } } else keys['_gLatch']=false;
+    if(keys['g']) { if(!keys['_gLatch']){ gadgetOrder(); keys['_gLatch']=true; } } else keys['_gLatch']=false;
     update(dt);
   } else lastT=t;
   render();
